@@ -85,7 +85,8 @@ def load_blender_data(BASE_DIR: str, dev_res: int = 4, skip: int = 4, dtype=np.f
     imgs = mindspore.Tensor.from_numpy(np.asarray(imgs))
     poses = mindspore.Tensor.from_numpy(np.asarray(poses))
     focal = mindspore.Tensor.from_numpy(np.asarray(focal))
-    # imgs = torch.from_numpy(np.asarray(imgs)).to(device=device, dtype=mindspore.float32)
-    # poses = torch.from_numpy(np.asarray(poses)).to(device=device, dtype=mindspore.float32)
-    # focal = torch.from_numpy(np.asarray(focal)).to(device=device, dtype=mindspore.float32)
+    # imgs.astype(mindspore.float32)
+    # poses.astype(mindspore.float32)
+    # focal.astype(mindspore.float32)
+    # imgs[:,:,:] /=
     return imgs, poses, [H, W, focal], i_split

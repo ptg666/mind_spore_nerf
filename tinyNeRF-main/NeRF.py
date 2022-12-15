@@ -11,42 +11,24 @@ from mindspore import nn
 # from torchvision.models import feature_extraction
 import numpy as np
 import matplotlib.pyplot as plt
+from mindspore.common.initializer import Normal
+mode_choice = "train"
 
+# 获取采样射线
 #                                                   torch.Tensor
 def get_rays(H: int, W: int, F: float, cam2world: mindspore.Tensor):
-    r"""Compute rays passing through all pixels of an image
-
-    Args:
-      H: Height of an image
-      W: Width of an image
-      G: Focal length of camera
-      cam2world: A 6-DoF rigid-body transform (4x4 matrix) that transforms a 3D point 
-      from the camera frame to the world frame (in homogeneous coordinate)
-    
-    Returns:
-      ray_origins: A tensor of shape (H, W, 3) denoting the centers of each ray. 
-        ray_origins[i][j] denotes the origin of the ray passing through pixel at
-        row index `i` and column index `j`.
-      ray_directions: A tensor of shape (H, W, 3) denoting the direction of each 
-        ray. ray_directions[i][j] denotes the direction (x, y, z) of the ray 
-        passing through the pixel at row index `i` and column index `j`.
-    
-    Note:
-      We use homogeneous coordinate for transformation. Each point in the 3D space
-      could be represent as [x, y, z, 1]. With cam2world @ [x, y, z, 1].T, we
-      are transfomring that point from camera fram to the world frame.
-      Besides, the origin point of the camera frame is [0, 0, 0, 1]. we could 
-      get world-frame coordinate of that origin with cam2world @ [0, 0, 0, 1].T,
-      which turns out to be cam2world[:3, -1].
-    """
     ray_origins, ray_directions = None, None
 
     # 'i' is the x axis of points, all columns are identical
     # 'j' is the y axis of points, all rows are identical 
     # i, j = torch.meshgrid(torch.linspace(0, W-1, W), torch.linspace(0, H-1, H), indexing='xy')
 
-    i, j = mindspore.numpy.meshgrid(mindspore.numpy.linspace(0, W - 1, W), mindspore.numpy.linspace(0, H - 1, H),indexing="xy")
-
+    #i, j = mindspore.numpy.meshgrid(mindspore.numpy.linspace(0, W - 1, W), mindspore.numpy.linspace(0, H - 1, H),indexing="xy")
+    start = mindspore.Tensor(0, mindspore.float32)
+    stop = mindspore.Tensor(W - 1, mindspore.float32)
+    start_ = mindspore.Tensor(0, mindspore.float32)
+    stop_ = mindspore.Tensor(H - 1, mindspore.float32)
+    i, j = mindspore.ops.meshgrid((mindspore.ops.linspace(start,stop, W), mindspore.ops.linspace(start_,stop_, H)),indexing="xy")
 
     # 变换了类型，注释掉了下面两行
     # i = i.to(cam2world) # (H, W)
@@ -62,22 +44,59 @@ def get_rays(H: int, W: int, F: float, cam2world: mindspore.Tensor):
     #                           -(j - H * .5) / F,
     #                           -torch.ones_like(i)] , dim=-1) # (H, W, 3)
 
-    directions = mindspore.numpy.stack([(i - W * .5) / F,
-                              -(j - H * .5) / F,
-                              -mindspore.numpy.ones_like(i)],axis=2)  # (H, W, 3)
+    # directions = mindspore.numpy.stack([(i - W * .5) / F,
+    #                           -(j - H * .5) / F,
+    #                           -mindspore.numpy.ones_like(i)],axis=2)  # (H, W, 3)
+    x1 = (i - W * .5) / F
+    x2 = -(j - H * .5) / F
+    x3 = -mindspore.ops.ones_like(i)
 
+
+    input_x1 = x1.astype(mindspore.float32)
+    input_x2 = x2.astype(mindspore.float32)
+    input_x3 = x3.astype(mindspore.float32)
+
+    directions = mindspore.ops.stack((input_x1,input_x2,input_x3),axis=2)  # (H, W, 3)
     # Apply transformation to the direction, f(d) = Ad = dA^(T)
     # 转置矩阵
     # ray_directions = directions @ cam2world[:3, :3].t() # (H, W, 3)
-    np_transpose = mindspore.numpy.transpose(cam2world[:3, :3])
-    ray_directions = directions.asnumpy() @ np_transpose.asnumpy()  # (H, W, 3)
-    ray_directions = mindspore.Tensor(ray_directions)
+    input_perm = (1,0)
+    np_transpose = mindspore.ops.transpose(cam2world[:3, :3],input_perm)
+
+    expand_dims = mindspore.ops.ExpandDims()
+
+    np_transpose = expand_dims(np_transpose, 0)
+
+    dir_np = np.array(directions,dtype=np.float32)
+    trans_np = np.array(np_transpose,dtype=np.float32)
+
+
+    true_value = dir_np @ trans_np
+    ray_directions = mindspore.Tensor.from_numpy(true_value)
+
+    # res = mindspore.Tensor(res,dtype=mindspore.float32)
+
+
+
+
+
+    # ray_directions = directions.asnumpy() @ np_transpose.asnumpy()  # (H, W, 3)
+    # import numpy as np
+    # x1 = np(directions)
+    # x2 = np.ndarray(np.transpose)
+    # x3 = x1 @ x2
+    # ray_directions_ = directions * np_transpose  # (H, W, 3)
     # All the rays share the same origin
     # ray_origins = cam2world[:3, -1].expand(ray_directions.shape) # (H, W, 3)
     ray_origins = cam2world[:3, -1].expand_as(ray_directions) # (H, W, 3)
+
+
+    ray_directions = ray_directions.astype("float32")
+    ray_origins = ray_origins.astype(mindspore.float32)
+    # return ray_origins, res
     return ray_origins, ray_directions
 
-#
+# 采样点
 def sample_points_from_rays(
     ray_origins: mindspore.Tensor,
     ray_directions: mindspore.Tensor,
@@ -106,9 +125,16 @@ def sample_points_from_rays(
     # example not code (H, W, num_samples, 3) = (H, W, 1, 3) + (H, W, 1, 3) * (H, W, num_samples, 1)
     sampled_points = ray_origins[..., None, :] + ray_directions[..., None, :] \
                       * depth_values[..., :, None]
+    # 12.2 1146
+    # sampled_points = mindspore.Tensor(sampled_points,dtype=mindspore.float32)
+    sampled_points = sampled_points.astype(mindspore.float32)
+    # depth_values = mindspore.Tensor(depth_values,dtype=mindspore.float32)
+    depth_values = depth_values.astype(mindspore.float32)
     return sampled_points, depth_values
 
 
+
+# 位置编码
 def positional_encoding(
     pos_in, freq=32, include_input=True, log_sampling=True
 ) -> mindspore.Tensor:
@@ -124,7 +150,8 @@ def positional_encoding(
     else:
         freq_bands = mindspore.numpy.linspace(2.0 ** 0.0, 2.0 ** (freq - 1), freq)
         # freq_bands = torch.linspace(2.0 ** 0.0, 2.0 ** (freq - 1), freq).to(pos_in)
-
+        # 12.2 1148
+        freq_bands = mindspore.Tensor(freq_bands,dtype=mindspore.float32)
     # TODO: why reduce \pi when calculating sin and cos
     for freq in freq_bands:
         for func in [mindspore.numpy.sin, mindspore.numpy.cos]:
@@ -134,6 +161,8 @@ def positional_encoding(
     # pos_out = torch.cat(pos_out, dim=-1)
     concat_op = mindspore.ops.Concat(axis=1)
     pos_out = concat_op(pos_out)
+    # pos_out = mindspore.Tensor(pos_out,dtype=mindspore.float32)
+    pos_out = pos_out.astype(mindspore.float32)
     return pos_out
 
 
@@ -147,10 +176,11 @@ def cumprod_exclusive(tensor: mindspore.Tensor) -> mindspore.Tensor:
 
     # cumprod = (1, tensor[0], tensor[0]*tensor[1], ...)
     cumprod[..., 0] = 1.
-
+    # cumprod = mindspore.Tensor(cumprod,dtype=mindspore.float32)
+    cumprod = cumprod.astype(mindspore.float32)
     return cumprod
 
-
+# 体渲染
 def volume_rendering(
     radiance_field: mindspore.Tensor,
     ray_origins: mindspore.Tensor,
@@ -224,38 +254,21 @@ def volume_rendering(
 
     return rgb_map, depth_map, acc_map
 
-#
-def get_minibatches(inputs: mindspore.Tensor, chunksize: Optional[int] = 1024 * 8):
+
+# 获取batch
+def get_minibatches(inputs: mindspore.Tensor, chunksize: Optional[int] = 1024 * 8):# 1024 * 8
     r"""Takes a huge tensor (ray "bundle") and splits it into a list of minibatches.
     Each element of the list (except possibly the last) has dimension `0` of length
     `chunksize`.
     """
-    inputs.astype(mindspore.float32)
-    return [inputs[i:i + chunksize] for i in range(0, inputs.shape[0], chunksize)]
+    inputs = inputs.astype(mindspore.float32)
+    outputs = [inputs[i:i + chunksize] for i in range(0, inputs.shape[0], chunksize)]
+    return outputs
 
-from mindspore.common.initializer import Normal
-class TinyNeRF(nn.Cell):
-    def __init__(self, pos_dim, fc_dim=128):
-      super().__init__()
-      self.nerf = nn.SequentialCell(
-                  nn.Dense(pos_dim, fc_dim, Normal(0.04), Normal(0.04)),
-                  nn.ReLU(),
-                  nn.Dense(fc_dim, fc_dim, Normal(0.04), Normal(0.04)),
-                  nn.ReLU(),
-                  nn.Dense(fc_dim, fc_dim, Normal(0.04), Normal(0.04)),
-                  nn.ReLU(),
-                  nn.Dense(fc_dim, 4, Normal(0.04), Normal(0.04))
-                  )
-    def construct(self, x):
-      r"""Output volume density and RGB color (4 dimensions), given a set of
-      positional encoded points sampled from the rays
-      """
-      x = self.nerf(x)
-      return x
 
 def tinynerf_step_forward(height, width, focal_length, trans_matrix,
                              near_point, far_point, num_depth_samples_per_ray,
-                             encoder, get_minibatches_function, model):
+                             encoder, model):
 
     # Get the "bundle" of rays through all image pixels.
     # (H, W, 3) & (H, W, 3)
@@ -275,10 +288,13 @@ def tinynerf_step_forward(height, width, focal_length, trans_matrix,
 
     # Split the encoded points into "chunks", run the model on all chunks, and
     # concatenate the results (to avoid out-of-memory issues).
-    batches = get_minibatches_function(encoded_points, chunksize=16384)
+    batches = get_minibatches(encoded_points, chunksize=16384)
+    # batches = mindspore.Tensor(batches)
+    # batches = batches.astype(mindspore.float32)
     predictions = []
     for batch in batches:
-        batch = batch.astype("float32")
+        # batch = mindspore.Tensor(batch,dtype=mindspore.float32)
+        # batch.astype(mindspore.float64)
         predictions.append(model(batch))
     # radiance_field_flattened = torch.cat(predictions, dim=0) # (H*W*num_samples, 4)
     op = mindspore.ops.Concat(axis=0)
@@ -289,14 +305,41 @@ def tinynerf_step_forward(height, width, focal_length, trans_matrix,
     radiance_field = mindspore.ops.reshape(radiance_field_flattened, tuple(unflattened_shape))
     # Perform differentiable volume rendering to re-synthesize the RGB image. # (H, W, 3)
     rgb_predicted, _, _ = volume_rendering(radiance_field, ray_origins, depth_values)
-
     return rgb_predicted
-#
-#
+
+class TinyNeRF(nn.Cell):
+    def __init__(self, pos_dim, fc_dim=128):
+      super().__init__()
+      self.nerf = nn.SequentialCell(
+                  nn.Dense(pos_dim, fc_dim,Normal(1,0)),
+                  nn.ReLU(),
+                  nn.Dense(fc_dim, fc_dim,Normal(1,0)),
+                  nn.ReLU(),
+                  nn.Dense(fc_dim, fc_dim,Normal(1,0)),
+                  nn.ReLU(),
+                  nn.Dense(fc_dim, 4)
+                  )
+
+
+      # self.nerf = nn.SequentialCell(
+      #             nn.Dense(pos_dim, fc_dim),
+      #             nn.ReLU(),
+      #             nn.Dense(fc_dim, fc_dim),
+      #             nn.ReLU(),
+      #             nn.Dense(fc_dim, fc_dim),
+      #             nn.ReLU(),
+      #             nn.Dense(fc_dim, 4)
+      #             )
+    def construct(self,height, width, focal_length, trans_matrix,
+                                 near_point, far_point, num_depth_samples_per_ray):
+        encoder = lambda x: positional_encoding(x, include_input=True, freq=6)
+        predict_rgb = tinynerf_step_forward(height, width, focal_length, trans_matrix,near_point, far_point, num_depth_samples_per_ray,encoder, self.nerf)
+        return predict_rgb
+
 
 
 def train(images, poses, hwf, i_split, near_point,
-          far_point, num_depth_samples_per_ray, encoder,
+          far_point, num_depth_samples_per_ray,
           num_iters, model, DEVICE="cuda"):
     # Image information
     H, W, focal_length = hwf
@@ -305,16 +348,20 @@ def train(images, poses, hwf, i_split, near_point,
     i_train, i_val, i_test = i_split
 
     # Optimizer parameters
-    lr = 5e-3
+    lr = 1e-6
 
     # Misc parameters
-    display_every = 100  # Number of iters after which stats are displayed
+    display_every = 3  # Number of iters after which stats are displayed
 
     # Define Adam optimizer
     optimizer = mindspore.nn.Adam(params=model.trainable_params(),learning_rate=lr)
 
+    # define loss
+    loss_func = mindspore.nn.MSELoss()
+
+
     # Seed RNG, for repeatability
-    seed = 9458
+    seed = 42
     mindspore.set_seed(seed)
     np.random.seed(seed)
 
@@ -327,77 +374,62 @@ def train(images, poses, hwf, i_split, near_point,
     test_img_rgb = images[test_idx, ..., :3]
     test_pose = poses[test_idx]
 
-    def model_forward_func(H, W, focal_length, train_pose, near_point,
-                           far_point, num_depth_samples_per_ray,
-                            train_img_rgb):
-        encoder = lambda x: positional_encoding(x, include_input=True, freq=6)
-        rgb_predicted = tinynerf_step_forward(H, W, focal_length,
-                                              train_pose, near_point,
-                                              far_point, num_depth_samples_per_ray,
-                                              encoder, get_minibatches, model)
-        lossfunction = mindspore.nn.MSELoss(reduction='none')
-        loss = lossfunction(rgb_predicted, train_img_rgb)
-        return loss, rgb_predicted
+
+    def forward(height, width, focal_length, trans_matrix,
+                                 near_point, far_point, num_depth_samples_per_ray,labels):
+        pred_rgb = model(height, width, focal_length, trans_matrix,
+                                 near_point, far_point, num_depth_samples_per_ray)
+        loss = loss_func(pred_rgb,labels)
+        return loss,pred_rgb
+    # grad_fn = mindspore.ops.value_and_grad(forward,None,optimizer.parameters,has_aux=True)
+    def train_step(height, width, focal_length, trans_matrix,
+                                 near_point, far_point, num_depth_samples_per_ray,labels):
+        loss,pred_rgb= forward(height, width, focal_length, trans_matrix,
+                                 near_point, far_point, num_depth_samples_per_ray,labels)
+        return loss,pred_rgb
+
+    grad_fn = mindspore.ops.value_and_grad(train_step, None, optimizer.parameters, has_aux=True)
 
     for i in range(num_iters):
+      if i % display_every == 0:
+        # Render test image
+        (loss, pred_rgb), grad = grad_fn(H, W, focal_length, test_pose,
+                                         near_point, far_point, num_depth_samples_per_ray, test_img_rgb)
+        loss = mindspore.ops.depend(loss, optimizer(grad))
+        psnr = -10. * mindspore.ops.log10(loss)
+        psnrs.append(psnr)
+        print("psnr =",psnr)
+        list(psnr)
+        iternums.append(i)
+        mode_choice = "train"
+        # Visualizing PSNR
+
+        plt.figure(figsize=(10, 4))
+        plt.subplot(121)
+        plt.imshow(list(pred_rgb.asnumpy()))
+        plt.title(f"Iteration {i}")
+        plt.subplot(122)
+        #plt.plot(iternums, psnrs)
+        plt.title("PSNR")
+        plt.show()
+
+      print("iter=",i)
       # Randomly pick a training image as the target, get rgb value and camera pose
       train_idx = np.random.randint(len(i_train))
       train_img_rgb = images[train_idx, ..., :3]
       train_pose = poses[train_idx]
-      # 定义梯度函数
-      grad_fn = mindspore.ops.value_and_grad(model_forward_func,None,optimizer.parameters,has_aux=True)
-      train_pose = train_pose.astype(mindspore.float32)
-      train_img_rgb = train_img_rgb.astype(mindspore.float32)
-      focal_length = focal_length.astype(mindspore.float32)
 
-      (loss,_),grads = grad_fn(H, W, focal_length,train_pose, near_point,
-                                far_point, num_depth_samples_per_ray,
-                                train_img_rgb)
-      loss = mindspore.ops.depend(loss,optimizer(grads))
+      train_pose = mindspore.Tensor(train_pose,dtype=mindspore.float32)
+      train_img_rgb = mindspore.Tensor(train_img_rgb, dtype=mindspore.float32)
+      focal_length = mindspore.Tensor(focal_length, dtype=mindspore.float32)
 
-      # Run one iteration of TinyNeRF and get the rendered RGB image.
-      # rgb_predicted = tinynerf_step_forward(H, W, focal_length,
-      #                                         train_pose, near_point,
-      #                                         far_point, num_depth_samples_per_ray,
-      #                                         encoder, get_minibatches, model)
+      (loss,pred_rgb),grad = grad_fn(H, W, focal_length, train_pose,
+                near_point, far_point, num_depth_samples_per_ray,train_img_rgb)
+      loss = mindspore.ops.depend(loss, optimizer(grad))
+      print("loss=",loss)
 
-      # Compute mean-squared error between the predicted and target images
-      # lossfunction = mindspore.nn.MSELoss(reduction='none')
-      # loss = torch.nn.functional.mse_loss(rgb_predicted, train_img_rgb)
+      # # Display rendered test images and corresponding loss
 
-      # loss = lossfunction(rgb_predicted,train_img_rgb)
-      # grads = model.grad(model.weights)
-      # loss = mindspore.ops.depend(loss,model.optimizer(grads))
 
-      # optimizer.step()
-      # optimizer.zero_grad()
 
-      # Display rendered test images and corresponding loss
-      if i % display_every == 0:
-        # Render test image
-        rgb_predicted = tinynerf_step_forward(H, W, focal_length,
-                                              test_pose, near_point,
-                                              far_point, num_depth_samples_per_ray,
-                                                encoder, get_minibatches, model)
-
-        # Calculate loss and Peak Signal-to-Noise Ratio (PSNR)
-        # loss = F.mse_loss(rgb_predicted, test_img_rgb)
-        test_loss_f = mindspore.nn.MSELoss(reduction='none')
-        test_loss = test_loss_f(rgb_predicted,test_img_rgb)
-        print("Loss:", loss.item())
-        psnr = -10. * mindspore.ops.log10(loss)
-
-        psnrs.append(psnr.item())
-        iternums.append(i)
-
-        # Visualizing PSNR
-        plt.figure(figsize=(10, 4))
-        plt.subplot(121)
-        plt.imshow(rgb_predicted.detach().cpu().numpy())
-        plt.title(f"Iteration {i}")
-        plt.subplot(122)
-        plt.plot(iternums, psnrs)
-        plt.title("PSNR")
-        plt.show()
-#
-#     print('Finish training')
+    print('Finish training')
