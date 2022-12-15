@@ -10,4 +10,11 @@ log:12.3
      -能训练nerf的 mlp
 
      -test 模块未完成
-
+log:12.15
+     -自定义了计算图
+     -实现了展示运行结果模块
+     -部署到 ModelArts 使用 GPU 加速训练
+     -训练速度慢，训练效果不太好
+   修改的Bug
+     -1.计算图定义 run_NeRF_lego.py
+     -2.get_rays() 中 ray_directions的计算方法
