@@ -1,11 +1,12 @@
 # mind_spore_nerf
 
 欢迎大家提出意见帮助我改进它。
+
 Thanks for giving me pertinent advice to improve this project.
 
-NeRF developed in mindspore
+将 Tiny-nerf（nerf 的简易实现版）迁移到 mindspore 框架上。
 
-将 Tiny-nerf（nerf 的简易实现版）迁移到 mindspore 平台上
+NeRF developed in mindspore
 
 log:12.3
 
