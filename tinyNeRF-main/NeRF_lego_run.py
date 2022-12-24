@@ -23,6 +23,7 @@ import imageio
 from IPython.display import HTML
 from base64 import b64encode
 
+
 # --mindspore 会根据设备自动设置上下文环境
 
 # if torch.cuda.is_available():
@@ -39,7 +40,7 @@ LEGO_DIR = os.path.join(dataset_path, "data", "nerf_synthetic", "lego")
 print("Base_dir is :",LEGO_DIR)
 
 dev_res = 4
-skip = 4
+skip = 8
 
 # 加载数据集
 images, poses, hwf, i_split = load_blender_data(LEGO_DIR, dev_res, skip)
@@ -65,7 +66,6 @@ sampled_points, depth_values = sample_points_from_rays(
 print(depth_values.shape)
 print(sampled_points.shape)
 print(sampled_points[0][0])
-
 # 11.30 10:36
 flattened_sampled_points = sampled_points.reshape((-1, 3))
 pos_out = positional_encoding(flattened_sampled_points, 3)
@@ -97,9 +97,10 @@ model = TinyNeRF(enc_dim, fc_dim=128)
 
 # 训练
 # Number of depth samples along each ray.
-num_depth_samples_per_ray = 2
+num_depth_samples_per_ray = 32
 
 num_iters = 140
+
 
 # 尝试 12.1 10：57
 # 构建训练函数

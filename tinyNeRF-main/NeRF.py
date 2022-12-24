@@ -13,6 +13,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mindspore.common.initializer import Normal
 mode_choice = "train"
+import argparse
+from mindspore import context
+# 配置脚本参数
+parser = argparse.ArgumentParser(description='NeRF_Mindspore')
+## 配置运行环境参数，Mindspore支持的三种运行环境分别为'Ascend'，'GPU'，'CPU'，默认运行环境是'CPU'。
+parser.add_argument('--device_target', type=str, default="GPU", choices=['Ascend', 'GPU', 'CPU'])
+
+# 设置运行环境
+args = parser.parse_known_args()[0]
+
+##device_target根据脚本信息（--device_target）配置硬件信息；mode设置运行模式(动静态图模式)
+context.set_context(mode=context.GRAPH_MODE, device_target=args.device_target)
+DTYPE = mindspore.float32
 
 # 获取采样射线
 #                                                   torch.Tensor
@@ -62,6 +75,15 @@ def get_rays(H: int, W: int, F: float, cam2world: mindspore.Tensor):
     # ray_directions = directions @ cam2world[:3, :3].t() # (H, W, 3)
     input_perm = (1,0)
     np_transpose = mindspore.ops.transpose(cam2world[:3, :3],input_perm)
+    # np_transpose = mindspore.numpy.transpose(cam2world[:3, :3])
+    batmatmul = mindspore.ops.BatchMatMul()
+    # directions = directions.astype(mindspore.float32)
+    # np_transpose = np_transpose.astype(mindspore.float32)
+
+
+    directions = mindspore.Tensor(directions)
+    np_transpose = mindspore.Tensor(np_transpose)
+
 
     expand_dims = mindspore.ops.ExpandDims()
 
@@ -69,7 +91,8 @@ def get_rays(H: int, W: int, F: float, cam2world: mindspore.Tensor):
 
     dir_np = np.array(directions,dtype=np.float32)
     trans_np = np.array(np_transpose,dtype=np.float32)
-
+    ray_directions = batmatmul(directions,np_transpose)
+    check_example = np.array([1,2,3])
 
     true_value = dir_np @ trans_np
     ray_directions = mindspore.Tensor.from_numpy(true_value)
@@ -230,16 +253,22 @@ def volume_rendering(
     # ！！！！！
     # Calculating `alpha = 1−exp(−𝜎𝛿)`
     op = mindspore.ops.Exp()
-    alpha = 1. - op(-sigma * delta)  # (num_rays, num_samples)
+    alpha = 1 - op(-sigma * delta)  # (num_rays, num_samples)
 
     # Calculate transmittance value, notice that T_1 = 1
     # It's possible that we get alpha=1 (sigma=0) for point A, which could make
     # transmittance of all the points after point A to be 0, we also want to take
     # their information into consideration, therefore we add a small value (1e-10)
     # to avoid vanishing transmittance
-    trans = cumprod_exclusive(1. - alpha + 1e-10) # (num_rays, num_samples)
-    weights = alpha * trans # (num_rays, num_samples)
+    trans = cumprod_exclusive(1. -  alpha + 1e-10) # (num_rays, num_samples)
+    
+    
+    
+    #trans = cumprod_exclusive(1. - alpha + 1e-3) # (num_rays, num_samples)
 
+    
+    
+    weights = alpha * trans # (num_rays, num_samples)
     # (num_rays, num_samples, 1) * (num_rays, num_samples, 3) -> (num_rays, num_samples, 3)
     rgb_map = (weights[..., None] * rgb).sum(axis=-2) # (num_rays, 3)
     rgb_map = rgb_map.view(H, W, 3) # (H, W, 3)
@@ -307,20 +336,19 @@ def tinynerf_step_forward(height, width, focal_length, trans_matrix,
     rgb_predicted, _, _ = volume_rendering(radiance_field, ray_origins, depth_values)
     return rgb_predicted
 
+
 class TinyNeRF(nn.Cell):
     def __init__(self, pos_dim, fc_dim=128):
       super().__init__()
       self.nerf = nn.SequentialCell(
-                  nn.Dense(pos_dim, fc_dim,Normal(1,0)),
+                  nn.Dense(pos_dim, fc_dim,Normal(0.8,0)),
                   nn.ReLU(),
-                  nn.Dense(fc_dim, fc_dim,Normal(1,0)),
+                  nn.Dense(fc_dim, fc_dim,Normal(0.8,0)),
                   nn.ReLU(),
-                  nn.Dense(fc_dim, fc_dim,Normal(1,0)),
+                  nn.Dense(fc_dim, fc_dim,Normal(0.8,0)),
                   nn.ReLU(),
                   nn.Dense(fc_dim, 4)
                   )
-
-
       # self.nerf = nn.SequentialCell(
       #             nn.Dense(pos_dim, fc_dim),
       #             nn.ReLU(),
@@ -341,6 +369,7 @@ class TinyNeRF(nn.Cell):
 def train(images, poses, hwf, i_split, near_point,
           far_point, num_depth_samples_per_ray,
           num_iters, model, DEVICE="cuda"):
+    
     # Image information
     H, W, focal_length = hwf
     H = int(H)
@@ -348,10 +377,10 @@ def train(images, poses, hwf, i_split, near_point,
     i_train, i_val, i_test = i_split
 
     # Optimizer parameters
-    lr = 1e-6
+    lr = 5e-4
 
     # Misc parameters
-    display_every = 3  # Number of iters after which stats are displayed
+    display_every = 2  # Number of iters after which stats are displayed
 
     # Define Adam optimizer
     optimizer = mindspore.nn.Adam(params=model.trainable_params(),learning_rate=lr)
@@ -361,14 +390,15 @@ def train(images, poses, hwf, i_split, near_point,
 
 
     # Seed RNG, for repeatability
-    seed = 42
-    mindspore.set_seed(seed)
-    np.random.seed(seed)
+    # seed = 9458
+    # mindspore.set_seed(seed)
+    # np.random.seed(seed)
 
+    
     # Lists to log metrics etc.
     psnrs = []
     iternums = []
-
+    loss_test = []
     # Use the first test images for visualization
     test_idx = len(i_train)
     test_img_rgb = images[test_idx, ..., :3]
@@ -395,34 +425,45 @@ def train(images, poses, hwf, i_split, near_point,
         # Render test image
         (loss, pred_rgb), grad = grad_fn(H, W, focal_length, test_pose,
                                          near_point, far_point, num_depth_samples_per_ray, test_img_rgb)
-        loss = mindspore.ops.depend(loss, optimizer(grad))
+        loss_show = float(loss)
+        loss_test.append(loss_show)
+        # loss = mindspore.ops.depend(loss, optimizer(grad))
         psnr = -10. * mindspore.ops.log10(loss)
-        psnrs.append(psnr)
+        psnrs.append(float(psnr))
+        
         print("psnr =",psnr)
-        list(psnr)
         iternums.append(i)
         mode_choice = "train"
+        psnr_show = list(psnrs)
+        print(psnr_show)
+        items_show = list(iternums)
         # Visualizing PSNR
-
+        
         plt.figure(figsize=(10, 4))
-        plt.subplot(121)
+        plt.subplot(131)
         plt.imshow(list(pred_rgb.asnumpy()))
         plt.title(f"Iteration {i}")
-        plt.subplot(122)
-        #plt.plot(iternums, psnrs)
+        
+        plt.subplot(132)
+        plt.plot(items_show, psnr_show)
         plt.title("PSNR")
+        
+        plt.subplot(133)
+        plt.plot(items_show, loss_test)
+        plt.title("LOSS")
         plt.show()
 
       print("iter=",i)
       # Randomly pick a training image as the target, get rgb value and camera pose
       train_idx = np.random.randint(len(i_train))
       train_img_rgb = images[train_idx, ..., :3]
+      # print(train_img_rgb[0,...,0])
       train_pose = poses[train_idx]
 
-      train_pose = mindspore.Tensor(train_pose,dtype=mindspore.float32)
-      train_img_rgb = mindspore.Tensor(train_img_rgb, dtype=mindspore.float32)
-      focal_length = mindspore.Tensor(focal_length, dtype=mindspore.float32)
-
+      # train_pose = mindspore.Tensor(train_pose,dtype=mindspore.float32)
+      # train_img_rgb = mindspore.Tensor(train_img_rgb, dtype=mindspore.float32)
+      # focal_length = mindspore.Tensor(focal_length, dtype=mindspore.float32)
+    
       (loss,pred_rgb),grad = grad_fn(H, W, focal_length, train_pose,
                 near_point, far_point, num_depth_samples_per_ray,train_img_rgb)
       loss = mindspore.ops.depend(loss, optimizer(grad))
