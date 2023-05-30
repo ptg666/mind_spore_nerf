@@ -1,0 +1,56 @@
+C:\Users\xjh\Documents\GitHub\MonoDDE\venv\Scripts\python.exe C:\Users\xjh\PycharmProjects\pythonProject3\metric_calculate.py 
+Setting up [LPIPS] perceptual loss: trunk [alex], v[0.1], spatial [off]
+
+------------------------------
+iter:500
+without_ds
+PSNR:14.84698517457448
+SSIM:0.7337924242019653
+LPIPS:tensor([[[[0.7870]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:14.791169123646284
+SSIM:0.739512026309967
+LPIPS:tensor([[[[0.7806]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:1000
+without_ds
+PSNR:17.945844640584504
+SSIM:0.8606886466344198
+LPIPS:tensor([[[[0.6914]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:17.51513567835632
+SSIM:0.846466581026713
+LPIPS:tensor([[[[0.6491]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:1500
+without_ds
+PSNR:18.66342341780555
+SSIM:0.8823450803756714
+LPIPS:tensor([[[[0.5882]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:18.56691061312948
+SSIM:0.8819823265075684
+LPIPS:tensor([[[[0.6038]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:2000
+without_ds
+PSNR:19.07149899502095
+SSIM:0.8927034934361776
+LPIPS:tensor([[[[0.5487]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:19.044464384998843
+SSIM:0.8956188956896464
+LPIPS:tensor([[[[0.5396]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+Process finished with exit code 0

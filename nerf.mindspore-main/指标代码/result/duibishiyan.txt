@@ -1,0 +1,55 @@
+C:\Users\xjh\Documents\GitHub\MonoDDE\venv\Scripts\python.exe C:\Users\xjh\PycharmProjects\pythonProject3\metric_calculate.py
+
+------------------------------
+iter:2000
+complete_model
+PSNR:19.50761915141455
+SSIM:0.9133881646792094
+LPIPS:tensor([[[[0.4241]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:19.044464384998843
+SSIM:0.8956188956896464
+LPIPS:tensor([[[[0.5396]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:4000
+complete_model
+PSNR:20.612911734270735
+SSIM:0.925283948580424
+LPIPS:tensor([[[[0.3446]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:20.1351875885427
+SSIM:0.915905217329661
+LPIPS:tensor([[[[0.4287]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:6000
+complete_model
+PSNR:21.23505627069114
+SSIM:0.9363268415133158
+LPIPS:tensor([[[[0.3021]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:20.571820109359845
+SSIM:0.9226967692375183
+LPIPS:tensor([[[[0.3847]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+------------------------------
+iter:8000
+complete_model
+PSNR:21.60710441075338
+SSIM:0.9394276340802511
+LPIPS:tensor([[[[0.2814]]]], grad_fn=<DivBackward0>)
+-------
+add_nothing
+PSNR:20.921358422268835
+SSIM:0.9283736745516459
+LPIPS:tensor([[[[0.3671]]]], grad_fn=<DivBackward0>)
+------------------------------
+
+Process finished with exit code 0
