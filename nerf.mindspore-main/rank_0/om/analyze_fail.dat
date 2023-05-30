@@ -1,0 +1,61 @@
+# [No.1] StridedSlice.11172
+# In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(715)/    def bprop(x, begin, end, strides, out, dout):/
+funcgraph fg_11172(
+        %para1 : Tensor(F32)[3387, 128]    # x
+        , %para2 : Tuple[I64*2]    # Φbegin
+        , %para3 : Tuple[I64*2]    # Φend
+        , %para4 : Tuple[I64*2]    # Φstrides
+        , %para5 : Tensor(F32)[128]    # out
+        , %para6 : Tensor(F32)[128]    # Φdout
+    ) {
+
+#------------------------> 0
+    %1 = DoSignaturePrimitive::S-Prim-negative{prim_type=1}(I64(1))    #(I64) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11174
+    %2 = DoSignaturePrimitive::S-Prim-Shape{prim_type=1}(%para1)    #(Tensor(F32)[3387, 128]) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(716)/        x_shape = shape_op(x)/#x_shape
+    %3 = DoSignaturePrimitive::S-Prim-in{prim_type=1}(%1, %2)    #(Undefined, Undefined) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11175
+    %4 = Primitive::getattr{prim_type=1}(%3, "__bool__")    #(Undefined, Undefined) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/_extends/parse/standard_method.py(1481)/    return x.__bool__()/#[CNode]11176
+    %5 = %4() #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/_extends/parse/standard_method.py(1481)/    return x.__bool__()/#[CNode]11177
+    %6 = Primitive::Switch{prim_type=1}(%5, FuncGraph::fg_11178, FuncGraph::fg_11179)    #(Undefined, Undefined, Undefined)    # fg_11178=✓StridedSlice.11178, fg_11179=✗StridedSlice.11179 #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11180
+    %7 = %6() #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11181
+    Primitive::Return{prim_type=1}(%7)    #(Undefined) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11182
+}
+# order:
+#   1: StridedSlice.11183:[CNode]11184{[0]: ValueNode<Primitive> resolve, [1]: ValueNode<NameSpace> CommonOPS: 'Namespace:mindspore._extends.parse.trope', [2]: ValueNode<Symbol> MakeTuple}
+#   2: StridedSlice.11183:[CNode]11185{[0]: [CNode]11184, [1]: x}
+
+
+# [No.2] _neg_scalar.11173
+# In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/composite/multitype_ops/negative_impl.py(30)/def _neg_scalar(x):/
+funcgraph fg_11173(
+        %para7 : I64    # x
+    ) {
+
+#------------------------> 1
+    %1 = Primitive::resolve{prim_type=1}(NameSpace::SymbolStr, F)    #(ExternalType, ExternalType) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11174
+    %2 = Primitive::getattr{prim_type=1}(%1, "scalar_usub")    #(Undefined, Undefined) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11174
+    %3 = %2(%para7)    #(I64) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11174
+    Primitive::Return{prim_type=1}(%3)    #(Undefined) #scope: Gradients/Default/gradStridedSlice
+      # In file /home/ma-user/anaconda3/envs/MindSpore/lib/python3.7/site-packages/mindspore/ops/_grad/grad_array_ops.py(717)/        if -1 in x_shape:/#[CNode]11174
+}
+# order:
+#   1: _neg_scalar.11173:[CNode]11174{[0]: ValueNode<Primitive> resolve, [1]: ValueNode<NameSpace> SymbolStr: 'Namespace:mindspore.ops.composite.multitype_ops.negative_impl', [2]: ValueNode<Symbol> F}
+#   2: _neg_scalar.11173:[CNode]11174{[0]: ValueNode<Primitive> getattr, [1]: [CNode]11174, [2]: ValueNode<StringImm> scalar_usub}
+#   3: _neg_scalar.11186:[CNode]11187{[0]: ValueNode<Primitive> resolve, [1]: ValueNode<NameSpace> CommonOPS: 'Namespace:mindspore._extends.parse.trope', [2]: ValueNode<Symbol> MakeTuple}
+#   4: _neg_scalar.11186:[CNode]11188{[0]: [CNode]11187, [1]: x}
+#   5: _neg_scalar.11173:[CNode]11174{[0]: [CNode]11174, [1]: x}
+#   6: _neg_scalar.11173:[CNode]11174{[0]: ValueNode<Primitive> Return, [1]: [CNode]11174}
+
+
+#===============================================================================
+# num of function graphs in stack: 2/3 (Ignored 1 internal frames).

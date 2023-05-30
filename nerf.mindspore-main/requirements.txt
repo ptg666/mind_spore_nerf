@@ -1,0 +1,8 @@
+imageio
+imageio-ffmpeg
+matplotlib
+configargparse
+tqdm
+opencv-python
+
+
